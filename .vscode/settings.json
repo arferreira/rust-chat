@@ -1,0 +1,7 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "./chat-service/Cargo.toml",
+    "./chat-service/Cargo.toml"
+  ],
+  "rust-analyzer.showUnlinkedFileNotification": false
+}

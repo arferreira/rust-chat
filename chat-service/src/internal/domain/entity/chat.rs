@@ -59,17 +59,155 @@ impl<'a> Chat<'a> {
             ));
         }
 
-        while self.config.max_tokens >= message.tokens + self.token_usage {
+        if self.config.max_tokens >= message.tokens + self.token_usage {
             self.messages.push(message.clone());
+            self.refresh_token_usage();
+        } else {
+            self.erased_messages.push(message.clone());
         }
 
         Ok(())
+    }
+
+    // refresh_token_usage is called after a message is added to the chat to update the token_usage
+    pub fn refresh_token_usage(&mut self) {
+        self.token_usage = self
+            .messages
+            .iter()
+            .fold(0, |acc, message| acc + message.tokens);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_add_message() {
+        let id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let initial_system_message = Message::new(
+            Uuid::new_v4(),
+            "system",
+            "Hello, I'm the system. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+        let messages = vec![];
+        let erased_messages = vec![];
+        let status = "active";
+        let token_usage = 0;
+        let config = ChatConfig {
+            model: Model::new("gpt-3.5-turbo".to_string(), 4096),
+            temperature: 0.0,
+            top_p: 0.0,
+            n: 0,
+            stop: vec![],
+            max_tokens: 5000,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+        };
+        let mut chat = Chat::new(
+            id,
+            user_id,
+            initial_system_message,
+            messages,
+            erased_messages,
+            status.to_string(),
+            token_usage,
+            config,
+        );
+
+        let message = Message::new(
+            Uuid::new_v4(),
+            "user",
+            "Hello, I'm the user. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+
+        // check number of tokens on message
+        assert_eq!(message.tokens, 4083);
+
+        chat.add_message(message.clone()).unwrap();
+        assert_eq!(chat.messages.len(), 1);
+        assert_eq!(chat.erased_messages.len(), 0);
+        assert_eq!(chat.token_usage, 4083);
+
+        chat.add_message(message.clone()).unwrap();
+        assert_eq!(chat.messages.len(), 1);
+        assert_eq!(chat.erased_messages.len(), 1);
+        assert_eq!(chat.token_usage, 4083);
+    }
+
+    #[test]
+    fn test_refresh_token_usage() {
+        let id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let initial_system_message = Message::new(
+            Uuid::new_v4(),
+            "system",
+            "Hello, I'm the system. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+        let messages = vec![];
+        let erased_messages = vec![];
+        let status = "active";
+        let token_usage = 0;
+        let config = ChatConfig {
+            model: Model::new("gpt-3.5-turbo".to_string(), 4096),
+            temperature: 0.0,
+            top_p: 0.0,
+            n: 0,
+            stop: vec![],
+            max_tokens: 0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+        };
+        let mut chat = Chat::new(
+            id,
+            user_id,
+            initial_system_message,
+            messages,
+            erased_messages,
+            status.to_string(),
+            token_usage,
+            config,
+        );
+
+        let message = Message::new(
+            Uuid::new_v4(),
+            "user",
+            "Hello, I'm the user. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+
+        chat.add_message(message.clone()).unwrap();
+        assert_eq!(chat.token_usage, 0);
+
+        chat.refresh_token_usage();
+        assert_eq!(chat.token_usage, 0);
+
+        chat.add_message(message.clone()).unwrap();
+        assert_eq!(chat.token_usage, 0);
+
+        chat.refresh_token_usage();
+        assert_eq!(chat.token_usage, 0);
+
+        chat.add_message(message.clone()).unwrap();
+        assert_eq!(chat.token_usage, 0);
+
+        chat.refresh_token_usage();
+        assert_eq!(chat.token_usage, 0);
+    }
 
     #[test]
     fn test_new() {

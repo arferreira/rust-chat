@@ -54,6 +54,20 @@ impl<'a> Message<'a> {
     pub fn created_at(&self) -> &chrono::DateTime<chrono::Utc> {
         &self.created_at
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let valid_role = self.role == "user" || self.role == "system" || self.role == "assistant";
+
+        if !valid_role {
+            return Err("role is invalid".to_string());
+        }
+
+        if self.content.is_empty() {
+            return Err("content is empty".to_string());
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -76,5 +90,57 @@ mod tests {
         assert_eq!(message.tokes, tokes);
         assert_eq!(message.model, &model);
         assert_eq!(message.created_at, created_at);
+    }
+
+    #[test]
+    fn test_validate() {
+        let id = Uuid::new_v4();
+        let role = "user";
+        let content = "Hello, world!";
+        let tokes = 128;
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let created_at = chrono::Utc::now();
+        let message = Message::new(id, role, content, tokes, &model, created_at);
+
+        assert_eq!(message.validate(), Ok(()));
+    }
+
+    #[test]
+    fn test_invalid_role() {
+        let id = Uuid::new_v4();
+        let role = "invalid";
+        let content = "Hello, world!";
+        let tokes = 128;
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let created_at = chrono::Utc::now();
+        let message = Message::new(id, role, content, tokes, &model, created_at);
+
+        assert_eq!(message.validate(), Err("role is invalid".to_string()));
+    }
+
+    #[test]
+    fn test_empty_content() {
+        let id = Uuid::new_v4();
+        let role = "user";
+        let content = "";
+        let tokes = 128;
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let created_at = chrono::Utc::now();
+        let message = Message::new(id, role, content, tokes, &model, created_at);
+
+        assert_eq!(message.validate(), Err("content is empty".to_string()));
+    }
+
+    #[test]
+    fn test_role_is_empty() {
+        let id = Uuid::new_v4();
+        let role = "";
+        let content = "Hello, world!";
+        let tokes = 128;
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let created_at = chrono::Utc::now();
+        let message = Message::new(id, role, content, tokes, &model, created_at);
+
+        assert_eq!(message.validate(), Err("role is invalid".to_string()));
     }
 }

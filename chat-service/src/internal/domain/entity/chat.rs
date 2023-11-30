@@ -76,11 +76,78 @@ impl<'a> Chat<'a> {
             .iter()
             .fold(0, |acc, message| acc + message.tokens);
     }
+
+    // get_messages returns a copy of the messages
+    pub fn get_messages(&self) -> Vec<Message<'a>> {
+        self.messages.iter().map(|msg| msg.clone()).collect()
+    }
+
+    pub fn count_messages(&self) -> usize {
+        self.messages.len()
+    }
+
+    // end sets the status of the chat to "ended"
+    pub fn end(&mut self) {
+        self.status = "ended".to_string();
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_ended_chat() {
+        let id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let initial_system_message = Message::new(
+            Uuid::new_v4(),
+            "system",
+            "Hello, I'm the system. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+        let messages = vec![];
+        let erased_messages = vec![];
+        let status = "ended";
+        let token_usage = 0;
+        let config = ChatConfig {
+            model: Model::new("gpt-3.5-turbo".to_string(), 4096),
+            temperature: 0.0,
+            top_p: 0.0,
+            n: 0,
+            stop: vec![],
+            max_tokens: 0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+        };
+        let mut chat = Chat::new(
+            id,
+            user_id,
+            initial_system_message,
+            messages,
+            erased_messages,
+            status.to_string(),
+            token_usage,
+            config,
+        );
+
+        let message = Message::new(
+            Uuid::new_v4(),
+            "user",
+            "Hello, I'm the user. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+
+        assert_eq!(
+            chat.add_message(message.clone()).unwrap_err().kind(),
+            std::io::ErrorKind::Other
+        );
+    }
 
     #[test]
     fn test_add_message() {

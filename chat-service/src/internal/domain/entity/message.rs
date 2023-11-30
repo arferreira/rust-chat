@@ -14,6 +14,18 @@ pub struct Message<'a> {
 }
 
 impl<'a> Message<'a> {
+    // implementation of trait clone
+    pub fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            role: self.role.clone(),
+            content: self.content.clone(),
+            tokens: self.tokens,
+            model: self.model,
+            created_at: self.created_at,
+        }
+    }
+
     pub fn new(
         id: Uuid,
         role: &'a str,

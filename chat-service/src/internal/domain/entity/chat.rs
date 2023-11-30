@@ -12,7 +12,7 @@ pub struct ChatConfig {
     pub top_p: f32,
     pub n: u32,
     pub stop: Vec<String>,
-    pub max_tokens: u32,
+    pub max_tokens: usize,
     pub presence_penalty: f32,
     pub frequency_penalty: f32,
 }
@@ -24,7 +24,7 @@ pub struct Chat<'a> {
     pub messages: Vec<Message<'a>>,
     pub erased_messages: Vec<Message<'a>>,
     pub status: String,
-    pub token_usage: u32,
+    pub token_usage: usize,
     pub config: ChatConfig,
 }
 
@@ -36,7 +36,7 @@ impl<'a> Chat<'a> {
         messages: Vec<Message<'a>>,
         erased_messages: Vec<Message<'a>>,
         status: String,
-        token_usage: u32,
+        token_usage: usize,
         config: ChatConfig,
     ) -> Self {
         Self {
@@ -58,7 +58,11 @@ impl<'a> Chat<'a> {
                 "Chat has already ended",
             ));
         }
-        self.messages.push(message);
+
+        while self.config.max_tokens >= message.tokens + self.token_usage {
+            self.messages.push(message.clone());
+        }
+
         Ok(())
     }
 }

@@ -1,3 +1,4 @@
+use tiktoken_rs::get_completion_max_tokens;
 use uuid::Uuid;
 
 use crate::internal::domain::entity::model::Model;
@@ -7,7 +8,7 @@ pub struct Message<'a> {
     pub id: Uuid,
     pub role: String,
     pub content: String,
-    pub tokes: u32,
+    pub tokens: usize,
     pub model: &'a Model,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -17,17 +18,29 @@ impl<'a> Message<'a> {
         id: Uuid,
         role: &'a str,
         content: &'a str,
-        tokes: u32,
+        tokens: usize,
         model: &'a Model,
         created_at: chrono::DateTime<chrono::Utc>,
     ) -> Self {
-        Self {
-            id,
-            role: role.to_string(),
-            content: content.to_string(),
-            tokes,
-            model,
-            created_at,
+        let total_tokens = get_completion_max_tokens(&model.name, content);
+
+        match total_tokens {
+            Ok(total_tokens) => Self {
+                id,
+                role: role.to_string(),
+                content: content.to_string(),
+                tokens: total_tokens,
+                model,
+                created_at,
+            },
+            Err(_) => Self {
+                id,
+                role: role.to_string(),
+                content: content.to_string(),
+                tokens,
+                model,
+                created_at,
+            },
         }
     }
 
@@ -43,8 +56,8 @@ impl<'a> Message<'a> {
         &self.content
     }
 
-    pub fn tokes(&self) -> u32 {
-        self.tokes
+    pub fn tokens(&self) -> usize {
+        self.tokens
     }
 
     pub fn model(&self) -> &Model {
@@ -66,6 +79,10 @@ impl<'a> Message<'a> {
             return Err("content is empty".to_string());
         }
 
+        if self.created_at > chrono::Utc::now() {
+            return Err("created_at is invalid".to_string());
+        }
+
         Ok(())
     }
 }
@@ -79,15 +96,15 @@ mod tests {
         let id = Uuid::new_v4();
         let role = "user";
         let content = "Hello, world!";
-        let tokes = 128;
+        let tokens = 4092;
         let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
         let created_at = chrono::Utc::now();
-        let message = Message::new(id, role, content, tokes, &model, created_at);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
 
         assert_eq!(message.id, id);
         assert_eq!(message.role, role);
         assert_eq!(message.content, content);
-        assert_eq!(message.tokes, tokes);
+        assert_eq!(message.tokens, tokens);
         assert_eq!(message.model, &model);
         assert_eq!(message.created_at, created_at);
     }
@@ -97,10 +114,10 @@ mod tests {
         let id = Uuid::new_v4();
         let role = "user";
         let content = "Hello, world!";
-        let tokes = 128;
+        let tokens = 4092;
         let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
         let created_at = chrono::Utc::now();
-        let message = Message::new(id, role, content, tokes, &model, created_at);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
 
         assert_eq!(message.validate(), Ok(()));
     }
@@ -110,10 +127,10 @@ mod tests {
         let id = Uuid::new_v4();
         let role = "invalid";
         let content = "Hello, world!";
-        let tokes = 128;
+        let tokens = 4092;
         let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
         let created_at = chrono::Utc::now();
-        let message = Message::new(id, role, content, tokes, &model, created_at);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
 
         assert_eq!(message.validate(), Err("role is invalid".to_string()));
     }
@@ -123,10 +140,10 @@ mod tests {
         let id = Uuid::new_v4();
         let role = "user";
         let content = "";
-        let tokes = 128;
+        let tokens = 4092;
         let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
         let created_at = chrono::Utc::now();
-        let message = Message::new(id, role, content, tokes, &model, created_at);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
 
         assert_eq!(message.validate(), Err("content is empty".to_string()));
     }
@@ -136,11 +153,24 @@ mod tests {
         let id = Uuid::new_v4();
         let role = "";
         let content = "Hello, world!";
-        let tokes = 128;
+        let tokens = 4092;
         let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
         let created_at = chrono::Utc::now();
-        let message = Message::new(id, role, content, tokes, &model, created_at);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
 
         assert_eq!(message.validate(), Err("role is invalid".to_string()));
+    }
+
+    #[test]
+    fn test_created_at_is_invalid() {
+        let id = Uuid::new_v4();
+        let role = "user";
+        let content = "Hello, world!";
+        let tokens = 4092;
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let created_at = chrono::Utc::now() + chrono::Duration::days(1);
+        let message = Message::new(id, role, content, tokens, &model, created_at);
+
+        assert_eq!(message.validate(), Err("created_at is invalid".to_string()));
     }
 }

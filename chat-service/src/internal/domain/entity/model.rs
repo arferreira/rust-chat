@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub struct Model {
     pub name: String,
     pub max_tokens: u32,

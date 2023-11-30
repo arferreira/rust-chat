@@ -51,6 +51,33 @@ impl<'a> Chat<'a> {
         }
     }
 
+    // validate checks if the chat is valid
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.status != "active" && self.status != "ended" {
+            return Err(Error::new(
+                std::io::ErrorKind::Other,
+                "Chat status is invalid",
+            ));
+        }
+
+        if self.token_usage > self.config.max_tokens {
+            return Err(Error::new(
+                std::io::ErrorKind::Other,
+                "Chat token usage is invalid",
+            ));
+        }
+
+        if self.status != "ended" && self.status != "active" {
+            return Err(Error::new(
+                std::io::ErrorKind::Other,
+                "Chat status is invalid",
+            ));
+        }
+
+        Ok(())
+    }
+
+    // add_message adds a message to the chat
     pub fn add_message(&mut self, message: Message<'a>) -> Result<(), Error> {
         if self.status == "ended" {
             return Err(Error::new(
@@ -95,6 +122,91 @@ impl<'a> Chat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_invalid_chat() {
+        let id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let initial_system_message = Message::new(
+            Uuid::new_v4(),
+            "system",
+            "Hello, I'm the system. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+        let messages = vec![];
+        let erased_messages = vec![];
+        let status = "invalid";
+        let token_usage = 0;
+        let config = ChatConfig {
+            model: Model::new("gpt-3.5-turbo".to_string(), 4096),
+            temperature: 0.0,
+            top_p: 0.0,
+            n: 0,
+            stop: vec![],
+            max_tokens: 0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+        };
+        let chat = Chat::new(
+            id,
+            user_id,
+            initial_system_message,
+            messages,
+            erased_messages,
+            status.to_string(),
+            token_usage,
+            config,
+        );
+
+        assert_eq!(
+            chat.validate().unwrap_err().kind(),
+            std::io::ErrorKind::Other
+        );
+    }
+
+    #[test]
+    fn test_validate_chat() {
+        let id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let model = Model::new("gpt-3.5-turbo".to_string(), 4096);
+        let initial_system_message = Message::new(
+            Uuid::new_v4(),
+            "system",
+            "Hello, I'm the system. How can I help you?",
+            0,
+            &model,
+            chrono::Utc::now(),
+        );
+        let messages = vec![];
+        let erased_messages = vec![];
+        let status = "active";
+        let token_usage = 0;
+        let config = ChatConfig {
+            model: Model::new("gpt-3.5-turbo".to_string(), 4096),
+            temperature: 0.0,
+            top_p: 0.0,
+            n: 0,
+            stop: vec![],
+            max_tokens: 0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+        };
+        let chat = Chat::new(
+            id,
+            user_id,
+            initial_system_message,
+            messages,
+            erased_messages,
+            status.to_string(),
+            token_usage,
+            config,
+        );
+
+        assert_eq!(chat.validate().unwrap(), ());
+    }
 
     #[test]
     fn test_ended_chat() {
